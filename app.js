@@ -19,12 +19,27 @@ const touchControls = document.getElementById("touch-controls");
 const touchLeft = document.getElementById("touch-left");
 const touchRight = document.getElementById("touch-right");
 
+let audioContext = null;
+let backgroundMusicStarted = false;
+const backgroundMusic = new Audio("./public/assets/apolo_vs_zeus.mp3");
+const backgroundRotation = [
+  "background_apolo_zeus",
+  "fondo_angel",
+  "fondo_mateo",
+];
+
+backgroundMusic.loop = true;
+backgroundMusic.preload = "auto";
+backgroundMusic.volume = 0.45;
+
 const imagePaths = {
   zeus: "./public/assets/zeus.png",
   apollo: "./public/assets/apolo.png",
   bolt: "./public/assets/rayo.png",
   cloud: "./public/assets/cloud.svg",
-  background: "./public/assets/background.svg",
+  background_apolo_zeus: "./public/assets/background_apolo_zeus.png",
+  fondo_angel: "./public/assets/fondo_angel.png",
+  fondo_mateo: "./public/assets/fondo_mateo.png",
 };
 
 const images = {};
@@ -46,6 +61,124 @@ const gameState = {
   width: 0,
   height: 0,
 };
+
+function ensureAudioContext() {
+  if (!window.AudioContext && !window.webkitAudioContext) {
+    return null;
+  }
+
+  if (!audioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioContextClass();
+  }
+
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+function startBackgroundMusic() {
+  if (backgroundMusicStarted) {
+    if (backgroundMusic.paused) {
+      backgroundMusic.play().catch(() => {});
+    }
+    return;
+  }
+
+  backgroundMusicStarted = true;
+  backgroundMusic.play().catch(() => {
+    backgroundMusicStarted = false;
+  });
+}
+
+function createNoiseBuffer(context, durationSeconds) {
+  const frameCount = Math.floor(context.sampleRate * durationSeconds);
+  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+  const channelData = buffer.getChannelData(0);
+
+  for (let index = 0; index < frameCount; index += 1) {
+    channelData[index] = Math.random() * 2 - 1;
+  }
+
+  return buffer;
+}
+
+function playLightningSound() {
+  const context = ensureAudioContext();
+  if (!context) {
+    return;
+  }
+
+  const now = context.currentTime;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const filter = context.createBiquadFilter();
+
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(880, now);
+  oscillator.frequency.exponentialRampToValueAtTime(240, now + 0.18);
+
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1200, now);
+  filter.Q.value = 4;
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+
+  oscillator.start(now);
+  oscillator.stop(now + 0.2);
+}
+
+function playImpactSound() {
+  const context = ensureAudioContext();
+  if (!context) {
+    return;
+  }
+
+  const now = context.currentTime;
+  const noiseSource = context.createBufferSource();
+  const noiseFilter = context.createBiquadFilter();
+  const noiseGain = context.createGain();
+  const boomOscillator = context.createOscillator();
+  const boomGain = context.createGain();
+
+  noiseSource.buffer = createNoiseBuffer(context, 0.28);
+
+  noiseFilter.type = "lowpass";
+  noiseFilter.frequency.setValueAtTime(900, now);
+  noiseFilter.frequency.exponentialRampToValueAtTime(160, now + 0.26);
+
+  noiseGain.gain.setValueAtTime(0.0001, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.24, now + 0.01);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+  boomOscillator.type = "triangle";
+  boomOscillator.frequency.setValueAtTime(110, now);
+  boomOscillator.frequency.exponentialRampToValueAtTime(42, now + 0.3);
+
+  boomGain.gain.setValueAtTime(0.0001, now);
+  boomGain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+
+  noiseSource.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(context.destination);
+
+  boomOscillator.connect(boomGain);
+  boomGain.connect(context.destination);
+
+  noiseSource.start(now);
+  boomOscillator.start(now);
+  noiseSource.stop(now + 0.28);
+  boomOscillator.stop(now + 0.32);
+}
 
 function loadImage(path) {
   return new Promise((resolve, reject) => {
@@ -171,6 +304,8 @@ function resetGame() {
 }
 
 function startGame() {
+  ensureAudioContext();
+  startBackgroundMusic();
   resetGame();
   saveScoreForm.classList.add("hidden");
   resultsPanel.classList.add("hidden");
@@ -192,6 +327,12 @@ function updateScore() {
   liveScoreValueElement.textContent = String(gameState.score);
 }
 
+function getCurrentBackgroundImage() {
+  const backgroundIndex = Math.floor(gameState.score / 10) % backgroundRotation.length;
+  const backgroundKey = backgroundRotation[backgroundIndex];
+  return images[backgroundKey];
+}
+
 function spawnRay() {
   const zeusCenter = gameState.zeus.x + gameState.zeus.width / 2;
   gameState.rays.push({
@@ -201,6 +342,7 @@ function spawnRay() {
     height: 78,
     speed: 320 + Math.min(gameState.score * 8, 260),
   });
+  playLightningSound();
 }
 
 function updateApollo(deltaSeconds) {
@@ -258,6 +400,7 @@ function updateRays(deltaSeconds) {
     ray.y += ray.speed * deltaSeconds;
 
     if (intersects(ray, apolloHitbox)) {
+      playImpactSound();
       finishGame();
       return;
     }
@@ -271,7 +414,8 @@ function updateRays(deltaSeconds) {
 }
 
 function drawBackground() {
-  context.drawImage(images.background, 0, 0, gameState.width, gameState.height);
+  const backgroundImage = getCurrentBackgroundImage();
+  context.drawImage(backgroundImage, 0, 0, gameState.width, gameState.height);
 }
 
 function drawCharacters() {
@@ -288,9 +432,12 @@ function drawCharacters() {
 function drawRays() {
   for (const ray of gameState.rays) {
     context.save();
-    context.shadowColor = "rgba(255, 215, 64, 0.8)";
-    context.shadowBlur = 18;
+    context.shadowColor = "rgba(255, 230, 92, 0.95)";
+    context.shadowBlur = 34;
+    context.globalCompositeOperation = "screen";
     context.drawImage(images.bolt, ray.x, ray.y, ray.width, ray.height);
+    context.globalAlpha = 0.55;
+    context.drawImage(images.bolt, ray.x - 6, ray.y - 4, ray.width + 12, ray.height + 10);
     context.restore();
   }
 }
