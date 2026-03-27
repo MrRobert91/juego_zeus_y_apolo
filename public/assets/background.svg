@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="none" role="img" aria-label="Fondo placeholder">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#083b88"/>
+      <stop offset="60%" stop-color="#2c82df"/>
+      <stop offset="100%" stop-color="#8dd8ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="280" cy="150" r="72" fill="#fff1a8" opacity="0.8"/>
+  <g fill="#ffffff" opacity="0.2">
+    <ellipse cx="320" cy="170" rx="130" ry="40"/>
+    <ellipse cx="980" cy="210" rx="170" ry="48"/>
+    <ellipse cx="1240" cy="140" rx="120" ry="34"/>
+  </g>
+  <g fill="#0d356a" opacity="0.28">
+    <rect x="160" y="560" width="26" height="180"/>
+    <rect x="212" y="560" width="26" height="180"/>
+    <rect x="264" y="560" width="26" height="180"/>
+    <rect x="316" y="560" width="26" height="180"/>
+    <rect x="368" y="560" width="26" height="180"/>
+    <polygon points="130,560 290,460 450,560"/>
+    <rect x="1100" y="590" width="26" height="150"/>
+    <rect x="1152" y="590" width="26" height="150"/>
+    <rect x="1204" y="590" width="26" height="150"/>
+    <polygon points="1070,590 1190,510 1310,590"/>
+  </g>
+  <rect y="760" width="1600" height="140" fill="#0b274b" opacity="0.55"/>
+</svg>

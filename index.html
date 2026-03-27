@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Zeus y Apolo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hud">
+      <div class="brand-block">
+        <p class="eyebrow">Arcade mitologico</p>
+        <h1>Zeus y Apolo</h1>
+      </div>
+      <div class="stats">
+        <div class="stat-card">
+          <span class="stat-label">Puntos</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Mejor</span>
+          <strong id="best-score">0</strong>
+        </div>
+        <button id="fullscreen-button" class="secondary-button" type="button">Pantalla completa</button>
+      </div>
+    </section>
+
+    <section class="game-layout">
+      <div class="canvas-frame">
+        <canvas id="game-canvas" aria-label="Juego de Zeus y Apolo"></canvas>
+        <div class="live-score" aria-live="polite">
+          <span class="live-score-label">Rayos esquivados</span>
+          <strong id="live-score-value">0</strong>
+        </div>
+        <div id="touch-controls" class="touch-controls hidden" aria-hidden="true">
+          <button id="touch-left" class="touch-button" type="button">◀</button>
+          <button id="touch-right" class="touch-button" type="button">▶</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section id="overlay" class="overlay visible" aria-live="polite">
+    <div class="overlay-card">
+      <p class="overlay-kicker">Desafio olimpico</p>
+      <h2 id="overlay-title">Esquiva los rayos de Zeus</h2>
+      <p id="overlay-message">Pulsa jugar para empezar. Cada rayo esquivado suma un punto.</p>
+      <div id="start-instructions" class="start-instructions">
+        <p>Zeus lanza rayos desde su trono. Mueve a Apolo para esquivarlos.</p>
+        <p>Controles: <strong>A / D</strong>, <strong>flechas</strong> o botones tactiles en movil.</p>
+      </div>
+      <form id="save-score-form" class="save-score-form hidden">
+        <label for="player-name">Has entrado en el top 10</label>
+        <input id="player-name" name="player-name" type="text" maxlength="18" placeholder="Tu nombre" autocomplete="nickname">
+        <button class="primary-button" type="submit">Guardar puntuacion</button>
+      </form>
+      <div class="overlay-actions">
+        <button id="start-button" class="primary-button" type="button">Jugar</button>
+      </div>
+      <section id="results-panel" class="results-panel hidden">
+        <h3>Mejores puntuaciones</h3>
+        <ol id="leaderboard" class="leaderboard"></ol>
+      </section>
+    </div>
+  </section>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

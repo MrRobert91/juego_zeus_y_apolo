@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Apolo placeholder">
+  <defs>
+    <linearGradient id="apolloRobe" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffcf70"/>
+      <stop offset="100%" stop-color="#ff7b54"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="24" fill="none"/>
+  <circle cx="128" cy="66" r="30" fill="#f0c89a"/>
+  <path d="M98 58c16-30 50-26 60 0-20-9-40-9-60 0Z" fill="#f4de7a"/>
+  <path d="M84 100c18-12 70-12 88 0l-10 104H94Z" fill="url(#apolloRobe)"/>
+  <rect x="88" y="202" width="28" height="18" rx="8" fill="#7a4b2a"/>
+  <rect x="140" y="202" width="28" height="18" rx="8" fill="#7a4b2a"/>
+  <path d="M64 114c14-10 24-6 32 10" stroke="#f0c89a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M192 114c-14-10-24-6-32 10" stroke="#f0c89a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M164 122c26 8 44 34 44 34-24 8-44 6-62-4" fill="none" stroke="#c2872a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
