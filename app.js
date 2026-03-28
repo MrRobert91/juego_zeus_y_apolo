@@ -1,53 +1,17 @@
 const STORAGE_KEY = "zeus-y-apolo-top-scores";
 const LEADERBOARD_LIMIT = 10;
+
 const canvas = document.getElementById("game-canvas");
 const canvasFrame = document.querySelector(".canvas-frame");
 const context = canvas.getContext("2d");
 const scoreElement = document.getElementById("score");
 const liveScoreValueElement = document.getElementById("live-score-value");
 const bestScoreElement = document.getElementById("best-score");
-let musicWasPlayingBeforePause = false;
 const leaderboardElement = document.getElementById("leaderboard");
 const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
-
-function pauseGameAudioForBackground() {
-  musicWasPlayingBeforePause = backgroundMusicStarted && !backgroundMusic.paused && !gameMuted;
-
-  if (musicWasPlayingBeforePause) {
-    backgroundMusic.pause();
-  }
-
-  if (audioContext && audioContext.state === "running") {
-    audioContext.suspend().catch(() => {});
-  }
-}
-
-function resumeGameAudioFromBackground() {
-  if (gameMuted) {
-    return;
-  }
-
-  if (musicWasPlayingBeforePause) {
-    backgroundMusic.play().catch(() => {});
-    musicWasPlayingBeforePause = false;
-  }
-
-  if (audioContext && audioContext.state === "suspended") {
-    audioContext.resume().catch(() => {});
-  }
-}
-
-function handleVisibilityChange() {
-  if (document.hidden) {
-    pauseGameAudioForBackground();
-    return;
-  }
-
-  resumeGameAudioFromBackground();
-}
 const muteButton = document.getElementById("mute-button");
 const fullscreenButton = document.getElementById("fullscreen-button");
 const saveScoreForm = document.getElementById("save-score-form");
@@ -58,45 +22,25 @@ const touchControls = document.getElementById("touch-controls");
 const touchLeft = document.getElementById("touch-left");
 const touchRight = document.getElementById("touch-right");
 
-  syncBackgroundImage();
-
-let audioContext = null;
-let backgroundMusicStarted = false;
-  return (
-    navigator.maxTouchPoints > 0 ||
-    "ontouchstart" in window ||
-    window.matchMedia("(pointer: coarse)").matches ||
-    window.innerWidth <= 900
-  );
-const backgroundMusic = new Audio("./public/assets/apolo_vs_zeus.mp3");
-const backgroundRotation = [
-  "background_apolo_zeus",
-  "fondo_angel",
-  "fondo_mateo",
-];
-
-
-function syncBackgroundImage() {
-  const backgroundImage = getCurrentBackgroundImage();
-  const backgroundSource = backgroundImage?.currentSrc || backgroundImage?.src || "";
-  canvasFrame.style.backgroundImage = backgroundSource ? `url("${backgroundSource}")` : "none";
-}
-backgroundMusic.loop = true;
-backgroundMusic.preload = "auto";
-backgroundMusic.volume = 0.45;
-
-  syncBackgroundImage();
-const imagePaths = {
+const spritePaths = {
   zeus: "./public/assets/zeus.png",
   apollo: "./public/assets/apolo.png",
-  syncBackgroundImage();
+  bolt: "./public/assets/rayo.png",
+  cloud: "./public/assets/cloud.svg",
+};
+
+const backgroundRotation = [
+  "./public/assets/background_apolo_zeus.png",
+  "./public/assets/fondo_angel.png",
+  "./public/assets/fondo_mateo.png",
+];
+
 const images = {};
 const inputState = {
   left: false,
   right: false,
 };
 
-    button.setPointerCapture?.(event.pointerId);
 const gameState = {
   running: false,
   score: 0,
@@ -107,16 +51,64 @@ const gameState = {
   apollo: null,
   zeus: null,
   rays: [],
-  button.addEventListener("lostpointercapture", deactivate);
   width: 0,
   height: 0,
 };
 
+let controlsBound = false;
+let audioContext = null;
+let backgroundMusicStarted = false;
+let gameMuted = false;
+let musicWasPlayingBeforePause = false;
+
+const backgroundMusic = new Audio("./public/assets/apolo_vs_zeus.mp3");
+backgroundMusic.loop = true;
+backgroundMusic.preload = "auto";
+backgroundMusic.volume = 0.45;
+
+function isMobileDevice() {
+  return (
+    navigator.maxTouchPoints > 0 ||
+    "ontouchstart" in window ||
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.innerWidth <= 900
+  );
+}
+
+function getCurrentBackgroundPath() {
+  const backgroundIndex = Math.floor(gameState.score / 10) % backgroundRotation.length;
+  return backgroundRotation[backgroundIndex];
+}
+
+function syncBackgroundImage() {
+  canvasFrame.style.backgroundImage = `url("${getCurrentBackgroundPath()}")`;
+}
+
+function loadImage(path) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = path;
+  });
+}
+
+async function preloadAssets() {
+  const entries = await Promise.all(
+    Object.entries(spritePaths).map(async ([key, path]) => [key, await loadImage(path)])
+  );
+
+  for (const [key, image] of entries) {
+    if (image) {
+      images[key] = image;
+    }
+  }
+
+  syncBackgroundImage();
+}
+
 function ensureAudioContext() {
   if (!window.AudioContext && !window.webkitAudioContext) {
-    if (isMobileDevice() && window.screen?.orientation?.lock) {
-      await window.screen.orientation.lock("portrait").catch(() => {});
-    }
     return null;
   }
 
@@ -125,7 +117,7 @@ function ensureAudioContext() {
     audioContext = new AudioContextClass();
   }
 
-  if (audioContext.state === "suspended") {
+  if (audioContext.state === "suspended" && !gameMuted) {
     audioContext.resume().catch(() => {});
   }
 
@@ -140,11 +132,11 @@ function setMutedState(muted) {
   gameMuted = muted;
   backgroundMusic.muted = muted;
 
-  if (muted && audioContext && audioContext.state === "running") {
+  if (muted && audioContext?.state === "running") {
     audioContext.suspend().catch(() => {});
   }
 
-  if (!muted && audioContext && audioContext.state === "suspended") {
+  if (!muted && audioContext?.state === "suspended") {
     audioContext.resume().catch(() => {});
   }
 
@@ -156,6 +148,10 @@ function toggleMute() {
 }
 
 function startBackgroundMusic() {
+  if (gameMuted) {
+    return;
+  }
+
   if (backgroundMusicStarted) {
     if (backgroundMusic.paused) {
       backgroundMusic.play().catch(() => {});
@@ -169,9 +165,45 @@ function startBackgroundMusic() {
   });
 }
 
-function createNoiseBuffer(context, durationSeconds) {
-  const frameCount = Math.floor(context.sampleRate * durationSeconds);
-  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+function pauseGameAudioForBackground() {
+  musicWasPlayingBeforePause = backgroundMusicStarted && !backgroundMusic.paused && !gameMuted;
+
+  if (musicWasPlayingBeforePause) {
+    backgroundMusic.pause();
+  }
+
+  if (audioContext?.state === "running") {
+    audioContext.suspend().catch(() => {});
+  }
+}
+
+function resumeGameAudioFromBackground() {
+  if (gameMuted) {
+    return;
+  }
+
+  if (musicWasPlayingBeforePause) {
+    backgroundMusic.play().catch(() => {});
+  }
+  musicWasPlayingBeforePause = false;
+
+  if (audioContext?.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    pauseGameAudioForBackground();
+    return;
+  }
+
+  resumeGameAudioFromBackground();
+}
+
+function createNoiseBuffer(currentAudioContext, durationSeconds) {
+  const frameCount = Math.floor(currentAudioContext.sampleRate * durationSeconds);
+  const buffer = currentAudioContext.createBuffer(1, frameCount, currentAudioContext.sampleRate);
   const channelData = buffer.getChannelData(0);
 
   for (let index = 0; index < frameCount; index += 1) {
@@ -186,15 +218,15 @@ function playLightningSound() {
     return;
   }
 
-  const context = ensureAudioContext();
-  if (!context) {
+  const currentAudioContext = ensureAudioContext();
+  if (!currentAudioContext) {
     return;
   }
 
-  const now = context.currentTime;
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const filter = context.createBiquadFilter();
+  const now = currentAudioContext.currentTime;
+  const oscillator = currentAudioContext.createOscillator();
+  const gain = currentAudioContext.createGain();
+  const filter = currentAudioContext.createBiquadFilter();
 
   oscillator.type = "sawtooth";
   oscillator.frequency.setValueAtTime(880, now);
@@ -210,7 +242,7 @@ function playLightningSound() {
 
   oscillator.connect(filter);
   filter.connect(gain);
-  gain.connect(context.destination);
+  gain.connect(currentAudioContext.destination);
 
   oscillator.start(now);
   oscillator.stop(now + 0.2);
@@ -221,19 +253,19 @@ function playImpactSound() {
     return;
   }
 
-  const context = ensureAudioContext();
-  if (!context) {
+  const currentAudioContext = ensureAudioContext();
+  if (!currentAudioContext) {
     return;
   }
 
-  const now = context.currentTime;
-  const noiseSource = context.createBufferSource();
-  const noiseFilter = context.createBiquadFilter();
-  const noiseGain = context.createGain();
-  const boomOscillator = context.createOscillator();
-  const boomGain = context.createGain();
+  const now = currentAudioContext.currentTime;
+  const noiseSource = currentAudioContext.createBufferSource();
+  const noiseFilter = currentAudioContext.createBiquadFilter();
+  const noiseGain = currentAudioContext.createGain();
+  const boomOscillator = currentAudioContext.createOscillator();
+  const boomGain = currentAudioContext.createGain();
 
-  noiseSource.buffer = createNoiseBuffer(context, 0.28);
+  noiseSource.buffer = createNoiseBuffer(currentAudioContext, 0.28);
 
   noiseFilter.type = "lowpass";
   noiseFilter.frequency.setValueAtTime(900, now);
@@ -253,70 +285,15 @@ function playImpactSound() {
 
   noiseSource.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
-  noiseGain.connect(context.destination);
+  noiseGain.connect(currentAudioContext.destination);
 
   boomOscillator.connect(boomGain);
-  boomGain.connect(context.destination);
+  boomGain.connect(currentAudioContext.destination);
 
   noiseSource.start(now);
   boomOscillator.start(now);
   noiseSource.stop(now + 0.28);
   boomOscillator.stop(now + 0.32);
-}
-
-function loadImage(path) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`No se pudo cargar ${path}`));
-    image.src = path;
-  });
-}
-
-async function preloadAssets() {
-  const entries = await Promise.all(
-    Object.entries(imagePaths).map(async ([key, path]) => [key, await loadImage(path)])
-  );
-
-  for (const [key, image] of entries) {
-    images[key] = image;
-  }
-}
-
-function isMobileDevice() {
-  return window.matchMedia("(pointer: coarse), (max-width: 900px)").matches;
-}
-
-function drawCoverImage(image, destinationWidth, destinationHeight) {
-  const sourceWidth = image.naturalWidth || image.width;
-  const sourceHeight = image.naturalHeight || image.height;
-  const sourceAspectRatio = sourceWidth / sourceHeight;
-  const destinationAspectRatio = destinationWidth / destinationHeight;
-
-  let cropWidth = sourceWidth;
-  let cropHeight = sourceHeight;
-  let cropX = 0;
-  let cropY = 0;
-
-  if (sourceAspectRatio > destinationAspectRatio) {
-    cropWidth = sourceHeight * destinationAspectRatio;
-    cropX = (sourceWidth - cropWidth) / 2;
-  } else {
-    cropHeight = sourceWidth / destinationAspectRatio;
-    cropY = (sourceHeight - cropHeight) / 2;
-  }
-
-  context.drawImage(
-    image,
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight,
-    0,
-    0,
-    destinationWidth,
-    destinationHeight
-  );
 }
 
 function toggleTouchControls() {
@@ -349,6 +326,15 @@ function qualifiesForLeaderboard(score) {
   return score > lowestSavedScore;
 }
 
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function renderLeaderboard() {
   const scores = getTopScores();
   leaderboardElement.innerHTML = "";
@@ -370,22 +356,14 @@ function renderLeaderboard() {
   bestScoreElement.textContent = String(scores[0].score);
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function resizeCanvas() {
-  const frame = canvas.parentElement;
-  const rect = frame.getBoundingClientRect();
+  const rect = canvasFrame.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
+
   canvas.width = Math.floor(rect.width * dpr);
   canvas.height = Math.floor(rect.height * dpr);
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
   gameState.width = rect.width;
   gameState.height = rect.height;
 
@@ -393,6 +371,12 @@ function resizeCanvas() {
     gameState.apollo.y = gameState.height - 96;
     gameState.zeus.y = Math.max(34, gameState.height * 0.15);
   }
+}
+
+function updateScore() {
+  scoreElement.textContent = String(gameState.score);
+  liveScoreValueElement.textContent = String(gameState.score);
+  syncBackgroundImage();
 }
 
 function resetGame() {
@@ -436,17 +420,6 @@ function startGame() {
 function stopGame() {
   gameState.running = false;
   cancelAnimationFrame(gameState.animationFrameId);
-}
-
-function updateScore() {
-  scoreElement.textContent = String(gameState.score);
-  liveScoreValueElement.textContent = String(gameState.score);
-}
-
-function getCurrentBackgroundImage() {
-  const backgroundIndex = Math.floor(gameState.score / 10) % backgroundRotation.length;
-  const backgroundKey = backgroundRotation[backgroundIndex];
-  return images[backgroundKey];
 }
 
 function spawnRay() {
@@ -530,13 +503,7 @@ function updateRays(deltaSeconds) {
 }
 
 function drawBackground() {
-  const backgroundImage = getCurrentBackgroundImage();
-  if (isMobileDevice()) {
-    drawCoverImage(backgroundImage, gameState.width, gameState.height);
-    return;
-  }
-
-  context.drawImage(backgroundImage, 0, 0, gameState.width, gameState.height);
+  syncBackgroundImage();
 }
 
 function drawCharacters() {
@@ -545,17 +512,37 @@ function drawCharacters() {
   const cloudX = gameState.zeus.x + (gameState.zeus.width - cloudWidth) / 2;
   const cloudY = gameState.zeus.y + gameState.zeus.height - cloudHeight * 0.38;
 
-  context.drawImage(images.cloud, cloudX, cloudY, cloudWidth, cloudHeight);
+  if (images.cloud) {
+    context.drawImage(images.cloud, cloudX, cloudY, cloudWidth, cloudHeight);
+  } else {
+    context.save();
+    context.fillStyle = "rgba(241, 246, 255, 0.9)";
+    context.beginPath();
+    context.ellipse(cloudX + cloudWidth * 0.5, cloudY + cloudHeight * 0.55, cloudWidth * 0.42, cloudHeight * 0.28, 0, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
   context.save();
   context.shadowColor = "rgba(102, 190, 255, 0.95)";
   context.shadowBlur = 28;
-  context.drawImage(images.zeus, gameState.zeus.x, gameState.zeus.y, gameState.zeus.width, gameState.zeus.height);
+  if (images.zeus) {
+    context.drawImage(images.zeus, gameState.zeus.x, gameState.zeus.y, gameState.zeus.width, gameState.zeus.height);
+  } else {
+    context.fillStyle = "#9dd7ff";
+    context.fillRect(gameState.zeus.x, gameState.zeus.y, gameState.zeus.width, gameState.zeus.height);
+  }
   context.restore();
 
   context.save();
   context.shadowColor = "rgba(255, 110, 205, 0.95)";
   context.shadowBlur = 24;
-  context.drawImage(images.apollo, gameState.apollo.x, gameState.apollo.y, gameState.apollo.width, gameState.apollo.height);
+  if (images.apollo) {
+    context.drawImage(images.apollo, gameState.apollo.x, gameState.apollo.y, gameState.apollo.width, gameState.apollo.height);
+  } else {
+    context.fillStyle = "#ff9ed9";
+    context.fillRect(gameState.apollo.x, gameState.apollo.y, gameState.apollo.width, gameState.apollo.height);
+  }
   context.restore();
 }
 
@@ -564,10 +551,23 @@ function drawRays() {
     context.save();
     context.shadowColor = "rgba(255, 230, 92, 0.95)";
     context.shadowBlur = 34;
-    context.globalCompositeOperation = "screen";
-    context.drawImage(images.bolt, ray.x, ray.y, ray.width, ray.height);
-    context.globalAlpha = 0.55;
-    context.drawImage(images.bolt, ray.x - 6, ray.y - 4, ray.width + 12, ray.height + 10);
+    if (images.bolt) {
+      context.globalCompositeOperation = "screen";
+      context.drawImage(images.bolt, ray.x, ray.y, ray.width, ray.height);
+      context.globalAlpha = 0.55;
+      context.drawImage(images.bolt, ray.x - 6, ray.y - 4, ray.width + 12, ray.height + 10);
+    } else {
+      context.fillStyle = "#ffe65c";
+      context.beginPath();
+      context.moveTo(ray.x + ray.width * 0.5, ray.y);
+      context.lineTo(ray.x + ray.width * 0.18, ray.y + ray.height * 0.42);
+      context.lineTo(ray.x + ray.width * 0.42, ray.y + ray.height * 0.42);
+      context.lineTo(ray.x + ray.width * 0.22, ray.y + ray.height);
+      context.lineTo(ray.x + ray.width * 0.82, ray.y + ray.height * 0.5);
+      context.lineTo(ray.x + ray.width * 0.54, ray.y + ray.height * 0.5);
+      context.closePath();
+      context.fill();
+    }
     context.restore();
   }
 }
@@ -620,6 +620,7 @@ function finishGame() {
   resultsPanel.classList.remove("hidden");
   saveScoreForm.classList.toggle("hidden", !isTopScore);
   playerNameInput.value = "";
+
   if (isTopScore) {
     playerNameInput.focus();
   }
@@ -653,7 +654,9 @@ function bindTouchButton(button, direction) {
   const activate = (event) => {
     event.preventDefault();
     setMovement(true, direction);
+    button.setPointerCapture?.(event.pointerId);
   };
+
   const deactivate = (event) => {
     event.preventDefault();
     setMovement(false, direction);
@@ -663,6 +666,7 @@ function bindTouchButton(button, direction) {
   button.addEventListener("pointerup", deactivate);
   button.addEventListener("pointerleave", deactivate);
   button.addEventListener("pointercancel", deactivate);
+  button.addEventListener("lostpointercapture", deactivate);
 }
 
 async function requestFullscreen() {
@@ -691,19 +695,17 @@ function handleFullscreenChange() {
   }
 }
 
-async function init() {
-  await preloadAssets();
-  updateMuteButtonLabel();
-  toggleTouchControls();
-  renderLeaderboard();
-  resizeCanvas();
-  resetGame();
-  drawScene();
-  resultsPanel.classList.add("hidden");
-  startInstructions.classList.remove("hidden");
+function bindControls() {
+  if (controlsBound) {
+    return;
+  }
+
+  controlsBound = true;
+
   bindKeyboardControls();
   bindTouchButton(touchLeft, "left");
   bindTouchButton(touchRight, "right");
+
   document.addEventListener("fullscreenchange", handleFullscreenChange);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("blur", pauseGameAudioForBackground);
@@ -733,9 +735,25 @@ async function init() {
   });
 }
 
+async function init() {
+  bindControls();
+  updateMuteButtonLabel();
+  toggleTouchControls();
+  renderLeaderboard();
+  resizeCanvas();
+  resetGame();
+  drawScene();
+
+  resultsPanel.classList.add("hidden");
+  startInstructions.classList.remove("hidden");
+
+  await preloadAssets();
+  drawScene();
+}
+
 init().catch((error) => {
+  console.error(error);
   overlay.classList.add("visible");
-  overlayTitle.textContent = "Error al cargar el juego";
-  overlayMessage.textContent = error.message;
-  startButton.disabled = true;
+  overlayTitle.textContent = "Esquiva los rayos de Zeus";
+  overlayMessage.textContent = "Pulsa jugar para empezar. Algunos recursos no se pudieron cargar, pero el juego sigue disponible.";
 });
