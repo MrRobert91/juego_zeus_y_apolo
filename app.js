@@ -1,15 +1,53 @@
 const STORAGE_KEY = "zeus-y-apolo-top-scores";
 const LEADERBOARD_LIMIT = 10;
 const canvas = document.getElementById("game-canvas");
+const canvasFrame = document.querySelector(".canvas-frame");
 const context = canvas.getContext("2d");
 const scoreElement = document.getElementById("score");
 const liveScoreValueElement = document.getElementById("live-score-value");
 const bestScoreElement = document.getElementById("best-score");
+let musicWasPlayingBeforePause = false;
 const leaderboardElement = document.getElementById("leaderboard");
 const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
+
+function pauseGameAudioForBackground() {
+  musicWasPlayingBeforePause = backgroundMusicStarted && !backgroundMusic.paused && !gameMuted;
+
+  if (musicWasPlayingBeforePause) {
+    backgroundMusic.pause();
+  }
+
+  if (audioContext && audioContext.state === "running") {
+    audioContext.suspend().catch(() => {});
+  }
+}
+
+function resumeGameAudioFromBackground() {
+  if (gameMuted) {
+    return;
+  }
+
+  if (musicWasPlayingBeforePause) {
+    backgroundMusic.play().catch(() => {});
+    musicWasPlayingBeforePause = false;
+  }
+
+  if (audioContext && audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    pauseGameAudioForBackground();
+    return;
+  }
+
+  resumeGameAudioFromBackground();
+}
 const muteButton = document.getElementById("mute-button");
 const fullscreenButton = document.getElementById("fullscreen-button");
 const saveScoreForm = document.getElementById("save-score-form");
@@ -20,9 +58,16 @@ const touchControls = document.getElementById("touch-controls");
 const touchLeft = document.getElementById("touch-left");
 const touchRight = document.getElementById("touch-right");
 
+  syncBackgroundImage();
+
 let audioContext = null;
 let backgroundMusicStarted = false;
-let gameMuted = false;
+  return (
+    navigator.maxTouchPoints > 0 ||
+    "ontouchstart" in window ||
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.innerWidth <= 900
+  );
 const backgroundMusic = new Audio("./public/assets/apolo_vs_zeus.mp3");
 const backgroundRotation = [
   "background_apolo_zeus",
@@ -30,26 +75,28 @@ const backgroundRotation = [
   "fondo_mateo",
 ];
 
+
+function syncBackgroundImage() {
+  const backgroundImage = getCurrentBackgroundImage();
+  const backgroundSource = backgroundImage?.currentSrc || backgroundImage?.src || "";
+  canvasFrame.style.backgroundImage = backgroundSource ? `url("${backgroundSource}")` : "none";
+}
 backgroundMusic.loop = true;
 backgroundMusic.preload = "auto";
 backgroundMusic.volume = 0.45;
 
+  syncBackgroundImage();
 const imagePaths = {
   zeus: "./public/assets/zeus.png",
   apollo: "./public/assets/apolo.png",
-  bolt: "./public/assets/rayo.png",
-  cloud: "./public/assets/cloud.svg",
-  background_apolo_zeus: "./public/assets/background_apolo_zeus.png",
-  fondo_angel: "./public/assets/fondo_angel.png",
-  fondo_mateo: "./public/assets/fondo_mateo.png",
-};
-
+  syncBackgroundImage();
 const images = {};
 const inputState = {
   left: false,
   right: false,
 };
 
+    button.setPointerCapture?.(event.pointerId);
 const gameState = {
   running: false,
   score: 0,
@@ -60,12 +107,16 @@ const gameState = {
   apollo: null,
   zeus: null,
   rays: [],
+  button.addEventListener("lostpointercapture", deactivate);
   width: 0,
   height: 0,
 };
 
 function ensureAudioContext() {
   if (!window.AudioContext && !window.webkitAudioContext) {
+    if (isMobileDevice() && window.screen?.orientation?.lock) {
+      await window.screen.orientation.lock("portrait").catch(() => {});
+    }
     return null;
   }
 
@@ -654,10 +705,14 @@ async function init() {
   bindTouchButton(touchLeft, "left");
   bindTouchButton(touchRight, "right");
   document.addEventListener("fullscreenchange", handleFullscreenChange);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("blur", pauseGameAudioForBackground);
+  window.addEventListener("focus", resumeGameAudioFromBackground);
 
   window.addEventListener("resize", () => {
     toggleTouchControls();
     resizeCanvas();
+    syncBackgroundImage();
     if (!gameState.running) {
       drawScene();
     }
