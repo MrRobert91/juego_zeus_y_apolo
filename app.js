@@ -425,8 +425,17 @@ function drawCharacters() {
   const cloudY = gameState.zeus.y + gameState.zeus.height - cloudHeight * 0.38;
 
   context.drawImage(images.cloud, cloudX, cloudY, cloudWidth, cloudHeight);
+  context.save();
+  context.shadowColor = "rgba(102, 190, 255, 0.95)";
+  context.shadowBlur = 28;
   context.drawImage(images.zeus, gameState.zeus.x, gameState.zeus.y, gameState.zeus.width, gameState.zeus.height);
+  context.restore();
+
+  context.save();
+  context.shadowColor = "rgba(255, 110, 205, 0.95)";
+  context.shadowBlur = 24;
   context.drawImage(images.apollo, gameState.apollo.x, gameState.apollo.y, gameState.apollo.width, gameState.apollo.height);
+  context.restore();
 }
 
 function drawRays() {
