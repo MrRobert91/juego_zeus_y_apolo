@@ -10,6 +10,7 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
+const muteButton = document.getElementById("mute-button");
 const fullscreenButton = document.getElementById("fullscreen-button");
 const saveScoreForm = document.getElementById("save-score-form");
 const playerNameInput = document.getElementById("player-name");
@@ -21,6 +22,7 @@ const touchRight = document.getElementById("touch-right");
 
 let audioContext = null;
 let backgroundMusicStarted = false;
+let gameMuted = false;
 const backgroundMusic = new Audio("./public/assets/apolo_vs_zeus.mp3");
 const backgroundRotation = [
   "background_apolo_zeus",
@@ -79,6 +81,29 @@ function ensureAudioContext() {
   return audioContext;
 }
 
+function updateMuteButtonLabel() {
+  muteButton.textContent = gameMuted ? "Activar sonido" : "Mutear";
+}
+
+function setMutedState(muted) {
+  gameMuted = muted;
+  backgroundMusic.muted = muted;
+
+  if (muted && audioContext && audioContext.state === "running") {
+    audioContext.suspend().catch(() => {});
+  }
+
+  if (!muted && audioContext && audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+
+  updateMuteButtonLabel();
+}
+
+function toggleMute() {
+  setMutedState(!gameMuted);
+}
+
 function startBackgroundMusic() {
   if (backgroundMusicStarted) {
     if (backgroundMusic.paused) {
@@ -106,6 +131,10 @@ function createNoiseBuffer(context, durationSeconds) {
 }
 
 function playLightningSound() {
+  if (gameMuted) {
+    return;
+  }
+
   const context = ensureAudioContext();
   if (!context) {
     return;
@@ -137,6 +166,10 @@ function playLightningSound() {
 }
 
 function playImpactSound() {
+  if (gameMuted) {
+    return;
+  }
+
   const context = ensureAudioContext();
   if (!context) {
     return;
@@ -609,6 +642,7 @@ function handleFullscreenChange() {
 
 async function init() {
   await preloadAssets();
+  updateMuteButtonLabel();
   toggleTouchControls();
   renderLeaderboard();
   resizeCanvas();
@@ -630,6 +664,7 @@ async function init() {
   });
 
   startButton.addEventListener("click", startGame);
+  muteButton.addEventListener("click", toggleMute);
   fullscreenButton.addEventListener("click", () => {
     requestFullscreen().catch(() => {});
   });

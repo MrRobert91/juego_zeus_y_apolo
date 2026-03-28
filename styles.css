@@ -279,6 +279,8 @@ body::before {
 .overlay-actions {
   display: flex;
   justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-top: 18px;
 }
 
