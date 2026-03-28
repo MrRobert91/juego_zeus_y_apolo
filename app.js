@@ -203,6 +203,38 @@ function isMobileDevice() {
   return window.matchMedia("(pointer: coarse), (max-width: 900px)").matches;
 }
 
+function drawCoverImage(image, destinationWidth, destinationHeight) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  const sourceAspectRatio = sourceWidth / sourceHeight;
+  const destinationAspectRatio = destinationWidth / destinationHeight;
+
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+  let cropX = 0;
+  let cropY = 0;
+
+  if (sourceAspectRatio > destinationAspectRatio) {
+    cropWidth = sourceHeight * destinationAspectRatio;
+    cropX = (sourceWidth - cropWidth) / 2;
+  } else {
+    cropHeight = sourceWidth / destinationAspectRatio;
+    cropY = (sourceHeight - cropHeight) / 2;
+  }
+
+  context.drawImage(
+    image,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    destinationWidth,
+    destinationHeight
+  );
+}
+
 function toggleTouchControls() {
   const showTouch = isMobileDevice();
   touchControls.classList.toggle("hidden", !showTouch);
@@ -415,6 +447,11 @@ function updateRays(deltaSeconds) {
 
 function drawBackground() {
   const backgroundImage = getCurrentBackgroundImage();
+  if (isMobileDevice()) {
+    drawCoverImage(backgroundImage, gameState.width, gameState.height);
+    return;
+  }
+
   context.drawImage(backgroundImage, 0, 0, gameState.width, gameState.height);
 }
 
@@ -548,10 +585,26 @@ async function requestFullscreen() {
   const root = document.documentElement;
   if (!document.fullscreenElement) {
     await root.requestFullscreen?.();
+    if (isMobileDevice() && window.screen?.orientation?.lock) {
+      await window.screen.orientation.lock("portrait").catch(() => {});
+    }
     return;
   }
 
   await document.exitFullscreen?.();
+}
+
+function handleFullscreenChange() {
+  if (document.fullscreenElement) {
+    if (isMobileDevice() && window.screen?.orientation?.lock) {
+      window.screen.orientation.lock("portrait").catch(() => {});
+    }
+    return;
+  }
+
+  if (window.screen?.orientation?.unlock) {
+    window.screen.orientation.unlock();
+  }
 }
 
 async function init() {
@@ -566,6 +619,7 @@ async function init() {
   bindKeyboardControls();
   bindTouchButton(touchLeft, "left");
   bindTouchButton(touchRight, "right");
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
 
   window.addEventListener("resize", () => {
     toggleTouchControls();
