@@ -478,9 +478,9 @@ function intersects(a, b) {
 
 function updateRays(deltaSeconds) {
   const apolloHitbox = {
-    x: gameState.apollo.x + 12,
+    x: gameState.apollo.x + 20,
     y: gameState.apollo.y + 10,
-    width: gameState.apollo.width - 24,
+    width: gameState.apollo.width - 40,
     height: gameState.apollo.height - 14,
   };
 
